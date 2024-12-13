@@ -237,25 +237,40 @@ class Php extends CodeGeneratorAbstract
 
     private function getDocComment(string $type, string $tag, Code\Property $property, ?string $argumentName = null): ?string
     {
+        /**
+         * Modified this to add description text to property phpdoc
+         */
+
         $docType = $property->getDocType();
+        $description = $property->getOrigin()->getDescription();
         if ($type === 'array') {
             // in case we have an array we must add a var annotation to describe which type is inside the array
-            return $this->buildComment([$tag => $docType . '|null' . ($argumentName !== null ? ' $' . $argumentName : '')]);
+            return $this->buildComment([$tag => $docType . '|null' . ($argumentName !== null ? ' $' . $argumentName : '')], $description);
         } elseif ($type === '\\' . Record::class) {
             // in case we have an inline map we need to provide the inner type
-            return $this->buildComment([$tag => $property->getDocType() . '|null' . ($argumentName !== null ? ' $' . $argumentName : '')]);
+            return $this->buildComment([$tag => $property->getDocType() . '|null' . ($argumentName !== null ? ' $' . $argumentName : '')], $description);
         } elseif ($type === 'mixed' && $docType !== 'mixed') {
-            return $this->buildComment([$tag => $docType . ($argumentName !== null ? ' $' . $argumentName : '')]);
+            return $this->buildComment([$tag => $docType . ($argumentName !== null ? ' $' . $argumentName : '')], $description);
         }
 
-        return null;
+        return $this->buildComment([], $description);
     }
 
     private function buildComment(array $tags, ?string $comment = null): string
     {
         $lines = [];
         if (!empty($comment)) {
-            $lines[] = ' * ' . $comment;
+            $lines = array_map(
+                callback: function($str) {
+                    return ' * ' . $str;
+                },
+                array: array_merge(...array_map(
+                    callback: function($str) {
+                        return preg_split("/\r\n|\n|\r/", wordwrap($str, 80));
+                    },
+                    array: preg_split("/\r\n|\n|\r/", $comment)
+                ))
+            );
         }
 
         foreach ($tags as $key => $value) {
@@ -282,10 +297,13 @@ class Php extends CodeGeneratorAbstract
     {
         $result = [];
 
-        $description = $type->getDescription();
-        if ($description !== null) {
-            $result[] = $this->newAttribute('Description', [$this->newScalar($description)], $uses);
-        }
+        /** 
+         * Description text was moved to property phpdoc
+         */
+        // $description = $type->getDescription();
+        // if ($description !== null) {
+        //     $result[] = $this->newAttribute('Description', [$this->newScalar($description)], $uses);
+        // }
 
         $deprecated = $type->isDeprecated();
         if ($deprecated !== null) {
@@ -320,10 +338,12 @@ class Php extends CodeGeneratorAbstract
         if ($key !== null) {
             $result[] = $this->newAttribute('Key', [$this->newScalar($key)], $uses);
         }
-
-        if ($type->getDescription() !== null) {
-            $result[] = $this->newAttribute('Description', [$this->newScalar($type->getDescription())], $uses);
-        }
+        /** 
+         * Description text was moved to property phpdoc
+         */
+        // if ($type->getDescription() !== null) {
+        //     $result[] = $this->newAttribute('Description', [$this->newScalar($type->getDescription())], $uses);
+        // }
         if ($type->isDeprecated() !== null) {
             $result[] = $this->newAttribute('Deprecated', [$this->newScalar($type->isDeprecated())], $uses);
         }
